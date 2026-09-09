@@ -18,7 +18,7 @@ public class AdaptadorQRCheck implements ServicioAsistencia {
 
     @Override
     public ResultadoCheckIn registrarAsistencia(String eventoId, String participanteId, String credencialQR) {
-        long idEvento = Long.parseLong(eventoId);
+        long idEvento = eventoId.hashCode();
 
         QRCheckRequest request = new QRCheckRequest(credencialQR, idEvento);
         QRCheckResponse response = qrCheckClient.validar(request);
