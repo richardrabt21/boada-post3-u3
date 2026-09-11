@@ -5,7 +5,7 @@ import org.springframework.stereotype.Service;
 // Facade: reduce los cuatro colaboradores a una sola operación simple
 // (validar -> generar -> firmar -> enviar), que es lo único que necesita conocer el controlador.
 @Service
-public class FachadaCertificados {
+public class FachadaCertificados implements ServicioCertificados {
 
     private final ValidadorAsistencia validador;
     private final GeneradorCertificadoPDF generador;
@@ -20,22 +20,23 @@ public class FachadaCertificados {
         this.correo = correo;
     }
 
-    public String emitirCertificado(String eventoId, String participanteId, String nombre, String correoDestino) {
-        if (!validador.tieneAsistenciaMinima(participanteId, eventoId, 0.8)) {
-            return null; // el controlador interpreta null como "asistencia insuficiente"
+    @Override
+    public byte[] emitir(SolicitudCertificado solicitud) {
+        if (!validador.tieneAsistenciaMinima(solicitud.getParticipanteId(), solicitud.getEventoId(), 0.8)) {
+            throw new IllegalStateException("Asistencia insuficiente");
         }
 
         byte[] doc = generador.iniciarDocumento("plantilla-2026");
-        generador.insertarDatosParticipante(doc, nombre, eventoId, "2026-08-06");
+        generador.insertarDatosParticipante(doc, solicitud.getNombre(), solicitud.getEventoId(), "2026-08-06");
         byte[] documentoFinal = generador.finalizarDocumento();
 
         FirmaDigitalService.Sesion sesion = firma.abrirSesion("cert-udes-2026.pfx");
         byte[] documentoFirmado = firma.firmar(sesion, documentoFinal);
         firma.cerrarSesion(sesion);
 
-        correo.adjuntarArchivo(correoDestino, documentoFirmado, "certificado-" + participanteId + ".pdf");
+        correo.adjuntarArchivo(solicitud.getCorreoDestino(), documentoFirmado, "certificado-" + solicitud.getParticipanteId() + ".pdf");
         correo.enviar("Su certificado de participación", "Adjunto encontrará su certificado.");
 
-        return "Certificado emitido y enviado";
+        return documentoFirmado;
     }
 }
